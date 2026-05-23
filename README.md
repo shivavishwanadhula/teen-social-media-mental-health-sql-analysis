@@ -102,22 +102,6 @@ Transaction Control
 * Build automated dashboards for early mental health detection.
 * Use SQL-based alert systems for proactive intervention.
 
-
-### ER Diagram
-
-<img width="1536" height="1024" alt="sqlerd" src="https://github.com/user-attachments/assets/bdcba1ac-f085-4f4e-91fd-13186bec29a9" />
-
-
-### 📷 Project Screenshots
-* KPI Dashboard Analysis
-* Trigger Output
-* Stored Procedure Output
-* Window Function Output
-
-
-<img width="1536" height="1024" alt="sql_project_screenshot" src="https://github.com/user-attachments/assets/469a3f3b-9f95-4cb2-b007-53929aa08d76" />
-
-
 # ⚙️ Technologies Used
 
 - MySQL
