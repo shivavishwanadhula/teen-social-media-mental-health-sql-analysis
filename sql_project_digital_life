@@ -1,0 +1,586 @@
+ 
+-- =====================================================
+-- Project Title
+-- Teen Social Media & Mental Health Analysis Using SQL
+-- =====================================================
+
+/*
+Project Overview:
+This project analyzes the relationship between social media usage
+and student mental health using SQL.
+
+Key Areas:
+1. Data Cleaning & Validation
+2. Exploratory Data Analysis (EDA)
+3. KPI Dashboard Analysis
+4. Business Insights
+5. Joins & Subqueries
+6. Window Functions
+7. Views
+8. CTEs
+9. Temporary Tables
+10. Stored Procedures
+11. Triggers
+12. Query Optimization
+*/
+
+-- =====================================================
+-- DATABASE SETUP
+-- =====================================================
+
+CREATE DATABASE teen_health;
+USE teen_health;
+
+SELECT * FROM digital_behavior;
+SELECT * FROM mental_health;
+SELECT * FROM user_profile;
+
+-- =====================================================
+-- DATA CLEANING & VALIDATION
+-- =====================================================
+
+-- 1. Find Duplicate Student IDs
+
+SELECT student_id,
+       COUNT(*) AS duplicate_count
+FROM user_profile
+GROUP BY student_id
+HAVING COUNT(*) > 1;
+
+-- 2. Find NULL Values
+
+SELECT *
+FROM digital_behavior
+WHERE platform_usage IS NULL
+   OR sleep_hours IS NULL
+   OR academic_performance IS NULL;
+
+-- 3. Handle NULL Values Using COALESCE
+
+SELECT student_id,
+       COALESCE(social_interaction_level, 'Unknown') AS social_interaction_level
+FROM user_profile;
+
+-- 4. Validate Sleep Hours
+
+SELECT *
+FROM digital_behavior
+WHERE sleep_hours NOT BETWEEN 0 AND 24;
+
+-- 5. Standardize Gender Values (MySQL Compatible)
+
+SELECT student_id,
+       CONCAT(
+           UPPER(LEFT(TRIM(LOWER(gender)), 1)),
+           SUBSTRING(TRIM(LOWER(gender)), 2)
+       ) AS standardized_gender
+FROM user_profile;
+
+-- 6. Validate Academic Performance Scores
+
+SELECT *
+FROM digital_behavior
+WHERE academic_performance NOT BETWEEN 0 AND 10;
+
+-- 7. Unique Platform Names
+
+SELECT DISTINCT platform_usage
+FROM digital_behavior
+ORDER BY platform_usage;
+
+-- 8. Create Cleaned Dataset Table
+
+CREATE TABLE cleaned_behavior AS
+SELECT DISTINCT *
+FROM digital_behavior
+WHERE student_id IS NOT NULL;
+
+-- =====================================================
+-- EXPLORATORY DATA ANALYSIS (EDA)
+-- =====================================================
+
+SELECT MIN(addiction_level) AS minimum_addiction
+FROM mental_health;
+
+SELECT MAX(stress_level) AS maximum_stress
+FROM mental_health;
+
+SELECT ROUND(AVG(academic_performance),2) AS avg_academic_performance
+FROM digital_behavior;
+
+-- =====================================================
+-- KPI DASHBOARD ANALYSIS
+-- =====================================================
+
+-- Total Students
+
+SELECT COUNT(DISTINCT student_id) AS total_students
+FROM user_profile;
+
+-- High Risk Students
+
+SELECT COUNT(*) AS high_risk_students
+FROM mental_health
+WHERE addiction_level >= 8;
+
+-- Average Sleep Hours
+
+SELECT ROUND(AVG(sleep_hours),2) AS avg_sleep_hours
+FROM digital_behavior;
+
+-- Depression Percentage
+
+SELECT ROUND(
+       (SUM(depression_label) * 100.0) / COUNT(*),
+       2
+) AS depression_percentage
+FROM mental_health;
+
+-- =====================================================
+-- BASIC BUSINESS ANALYSIS
+-- =====================================================
+
+-- Average Social Media Usage Time
+
+SELECT ROUND(AVG(daily_social_media_spending_time),2)
+AS avg_social_media_time
+FROM digital_behavior;
+
+-- Most Popular Platforms
+
+SELECT platform_usage,
+       COUNT(*) AS total_users
+FROM digital_behavior
+GROUP BY platform_usage
+ORDER BY total_users DESC
+LIMIT 5;
+
+-- Average GPA by Platform
+
+SELECT platform_usage,
+       ROUND(AVG(academic_performance),2) AS avg_gpa
+FROM digital_behavior
+GROUP BY platform_usage
+ORDER BY avg_gpa DESC;
+
+-- Average Stress Level by Platform
+
+SELECT d.platform_usage,
+       ROUND(AVG(m.stress_level),2) AS avg_stress_level
+FROM digital_behavior d
+JOIN mental_health m
+ON d.student_id = m.student_id
+GROUP BY d.platform_usage
+ORDER BY avg_stress_level DESC;
+
+-- Students with High Addiction Levels
+
+SELECT student_id,
+       addiction_level
+FROM mental_health
+WHERE addiction_level >= 8
+ORDER BY addiction_level DESC;
+
+-- =====================================================
+-- BEHAVIORAL & CORRELATION ANALYSIS
+-- =====================================================
+
+-- Addiction vs Academic Performance
+
+SELECT m.addiction_level,
+       ROUND(AVG(d.academic_performance),2) AS avg_gpa
+FROM mental_health m
+JOIN digital_behavior d
+ON m.student_id = d.student_id
+GROUP BY m.addiction_level
+ORDER BY m.addiction_level DESC;
+
+-- Sleep Impact Analysis
+
+SELECT
+    CASE
+        WHEN d.sleep_hours < 5 THEN 'Poor Sleep'
+        WHEN d.sleep_hours BETWEEN 5 AND 7 THEN 'Average Sleep'
+        ELSE 'Healthy Sleep'
+    END AS sleep_category,
+
+    ROUND(AVG(d.academic_performance),2) AS avg_gpa,
+    ROUND(AVG(m.stress_level),2) AS avg_stress
+
+FROM digital_behavior d
+JOIN mental_health m
+ON d.student_id = m.student_id
+
+GROUP BY sleep_category;
+
+-- Top 5 Most Stressed Students
+
+SELECT student_id,
+       stress_level
+FROM mental_health
+ORDER BY stress_level DESC
+LIMIT 5;
+
+-- =====================================================
+-- INTERMEDIATE SQL ANALYSIS
+-- =====================================================
+
+-- Inner Join Example
+
+SELECT u.student_id,
+       u.gender,
+       d.platform_usage,
+       m.stress_level
+FROM user_profile u
+INNER JOIN digital_behavior d
+ON u.student_id = d.student_id
+INNER JOIN mental_health m
+ON u.student_id = m.student_id;
+
+-- Left Join Example
+
+SELECT u.student_id,
+       u.gender,
+       d.platform_usage
+FROM user_profile u
+LEFT JOIN digital_behavior d
+ON u.student_id = d.student_id;
+
+-- Anti Join Example
+
+SELECT u.student_id,
+       u.gender
+FROM user_profile u
+LEFT JOIN mental_health m
+ON u.student_id = m.student_id
+WHERE m.student_id IS NULL;
+
+-- CASE Statement Example
+
+SELECT student_id,
+       addiction_level,
+       CASE
+           WHEN addiction_level >= 8 THEN 'High Risk'
+           WHEN addiction_level BETWEEN 5 AND 7 THEN 'Moderate Risk'
+           ELSE 'Low Risk'
+       END AS risk_category
+FROM mental_health;
+
+-- Students Above Average Addiction Level
+
+SELECT student_id,
+       addiction_level
+FROM mental_health
+WHERE addiction_level > (
+    SELECT AVG(addiction_level)
+    FROM mental_health
+);
+
+-- Platform with Highest Average Stress
+
+SELECT d.platform_usage,
+       ROUND(AVG(m.stress_level),2) AS avg_stress
+FROM digital_behavior d
+JOIN mental_health m
+ON d.student_id = m.student_id
+GROUP BY d.platform_usage
+ORDER BY avg_stress DESC
+LIMIT 1;
+
+-- =====================================================
+-- ADVANCED SQL ANALYSIS
+-- =====================================================
+
+-- Rank Students by Addiction Level
+
+SELECT student_id,
+       addiction_level,
+       RANK() OVER(ORDER BY addiction_level DESC)
+       AS addiction_rank
+FROM mental_health;
+
+-- Dense Rank Example
+
+SELECT student_id,
+       stress_level,
+       DENSE_RANK() OVER(ORDER BY stress_level DESC)
+       AS stress_rank
+FROM mental_health;
+
+-- Row Number Example
+
+SELECT student_id,
+       platform_usage,
+       academic_performance,
+       ROW_NUMBER() OVER(
+           PARTITION BY platform_usage
+           ORDER BY academic_performance DESC
+       ) AS row_num
+FROM digital_behavior;
+
+-- LEAD and LAG Functions
+
+SELECT student_id,
+       academic_performance,
+
+       COALESCE(
+           LAG(academic_performance)
+           OVER(ORDER BY academic_performance),
+           0
+       ) AS previous_gpa,
+
+       COALESCE(
+           LEAD(academic_performance)
+           OVER(ORDER BY academic_performance),
+           0
+       ) AS next_gpa
+
+FROM digital_behavior;
+
+-- NTILE Function
+
+SELECT student_id,
+       addiction_level,
+       NTILE(4) OVER(
+           ORDER BY addiction_level DESC
+       ) AS addiction_quartile
+FROM mental_health;
+
+-- Percent Rank Example
+
+SELECT student_id,
+       addiction_level,
+       ROUND(
+           PERCENT_RANK() OVER(
+               ORDER BY addiction_level
+           ), 2
+       ) AS percent_rank_value
+FROM mental_health;
+
+-- =====================================================
+-- COMMON TABLE EXPRESSIONS (CTE)
+-- =====================================================
+
+WITH high_risk_students AS (
+    SELECT d.student_id,
+           d.sleep_hours,
+           d.academic_performance,
+           m.addiction_level,
+           m.stress_level
+    FROM digital_behavior d
+    JOIN mental_health m
+    ON d.student_id = m.student_id
+    WHERE m.addiction_level >= 8
+)
+
+SELECT *
+FROM high_risk_students;
+
+-- =====================================================
+-- VIEW CREATION
+-- =====================================================
+
+CREATE OR REPLACE VIEW vw_student_mental_health_dashboard AS
+
+SELECT u.student_id,
+       u.gender,
+       d.platform_usage,
+       d.sleep_hours,
+       d.academic_performance,
+       m.addiction_level,
+       m.stress_level,
+       m.depression_label
+
+FROM user_profile u
+
+JOIN digital_behavior d
+ON u.student_id = d.student_id
+
+JOIN mental_health m
+ON u.student_id = m.student_id;
+
+SELECT *
+FROM vw_student_mental_health_dashboard;
+
+-- =====================================================
+-- TEMPORARY TABLE
+-- =====================================================
+
+CREATE TEMPORARY TABLE high_risk_temp_students AS
+
+SELECT d.student_id,
+       d.platform_usage,
+       d.sleep_hours,
+       d.academic_performance,
+       m.addiction_level,
+       m.stress_level
+
+FROM digital_behavior d
+
+JOIN mental_health m
+ON d.student_id = m.student_id
+
+WHERE m.addiction_level > 7
+  AND d.sleep_hours < 5
+  AND d.academic_performance < 5;
+
+SELECT *
+FROM high_risk_temp_students;
+
+-- =====================================================
+-- STORED PROCEDURE
+-- =====================================================
+
+DELIMITER //
+
+CREATE PROCEDURE GetPlatformReport(
+    IN platform_name VARCHAR(100)
+)
+
+BEGIN
+
+    SELECT d.platform_usage,
+           ROUND(AVG(m.stress_level),2)
+           AS avg_stress_level,
+
+           ROUND(AVG(d.academic_performance),2)
+           AS avg_gpa,
+
+           SUM(m.depression_label)
+           AS depression_cases,
+
+           COUNT(*) AS total_students
+
+    FROM digital_behavior d
+
+    JOIN mental_health m
+    ON d.student_id = m.student_id
+
+    WHERE d.platform_usage = platform_name
+
+    GROUP BY d.platform_usage;
+
+END //
+
+DELIMITER ;
+
+CALL GetPlatformReport('Instagram');
+
+-- =====================================================
+-- TRIGGER IMPLEMENTATION
+-- =====================================================
+
+CREATE TABLE IF NOT EXISTS alert_students (
+    student_id INT,
+    addiction_level INT,
+    depression_label INT,
+    alert_created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+DELIMITER //
+
+CREATE TRIGGER trg_high_risk_students
+
+AFTER INSERT ON mental_health
+
+FOR EACH ROW
+
+BEGIN
+
+    IF NEW.addiction_level > 8
+       AND NEW.depression_label = 1 THEN
+
+        INSERT INTO alert_students (
+            student_id,
+            addiction_level,
+            depression_label
+        )
+
+        VALUES (
+            NEW.student_id,
+            NEW.addiction_level,
+            NEW.depression_label
+        );
+
+    END IF;
+
+END //
+
+DELIMITER ;
+
+-- Test Trigger
+
+INSERT INTO mental_health (
+    student_id,
+    addiction_level,
+    depression_label
+)
+
+VALUES (
+    1001,
+    9,
+    1
+);
+
+-- Verify Trigger Result
+
+SELECT *
+FROM alert_students;
+
+-- =====================================================
+-- QUERY OPTIMIZATION USING INDEXES
+-- =====================================================
+
+CREATE INDEX idx_student_id
+ON digital_behavior(student_id);
+
+CREATE INDEX idx_platform
+ON digital_behavior(platform_usage);
+
+-- =====================================================
+-- TRANSACTION CONTROL
+-- =====================================================
+
+START TRANSACTION;
+
+UPDATE mental_health
+SET stress_level = stress_level + 1
+WHERE addiction_level >= 9;
+
+ROLLBACK;
+
+-- =====================================================
+-- FINAL BUSINESS INSIGHTS
+-- =====================================================
+
+/*
+1. Students with higher addiction levels showed
+   lower academic performance.
+
+2. Reduced sleep hours increased stress levels.
+
+3. Social media usage patterns directly impacted
+   student mental health.
+
+4. Trigger-based alert systems can identify
+   high-risk students automatically.
+
+5. SQL analytics can help educational institutions
+   monitor student well-being effectively.
+*/
+
+-- =====================================================
+-- BUSINESS RECOMMENDATIONS
+-- =====================================================
+
+/*
+1. Provide counseling support for high-risk students.
+
+2. Encourage healthy sleep habits among students.
+
+3. Monitor excessive social media usage patterns.
+
+4. Build dashboards for early mental health detection.
+
+5. Use automated SQL alerts for intervention systems.
+*/
